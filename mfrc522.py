@@ -3,6 +3,9 @@ from os import uname
 
 
 class MFRC522:
+	""" MicroPython class to communicate with the MFRC522 RFID module """
+
+	# Constants
 
 	OK = 0
 	NOTAGERR = 1
@@ -13,39 +16,100 @@ class MFRC522:
 	AUTHENT1A = 0x60
 	AUTHENT1B = 0x61
 
-	def __init__(self, sck, mosi, miso, rst, cs):
+	def __init__(self, sck: int = None, mosi: int = None, miso: int = None, rst: int = None, cs: int = None, spi: SPI = None):
+		""" Initialize the MFRC522 module
 
-		self.sck = Pin(sck, Pin.OUT)
-		self.mosi = Pin(mosi, Pin.OUT)
-		self.miso = Pin(miso)
-		self.rst = Pin(rst, Pin.OUT)
+		For compatibility with the original library, the pins can be specified 
+		as arguments for WiPy, LoPy, FiPy and ESP8266. For other platforms, an
+		initialized SPI object must be passed as argument.
+
+		```python
+		# For ESP8266:
+
+		mfrc522_esp8266 = MFRC522(0, 2, 4, 5, 14)
+
+		# For ESP32:
+
+		from machine import SoftSPI, Pin
+
+		sck = Pin(18, Pin.OUT)
+		mosi = Pin(23, Pin.OUT)
+		miso = Pin(19, Pin.OUT)
+		spi = SoftSPI(baudrate=100000, polarity=0, phase=0, sck=sck, mosi=mosi, miso=miso)
+		spi.init()
+
+		sda = Pin(5, Pin.OUT)
+
+		mfrc522_esp32 = MFRC522(spi=spi, cs=sda)
+		```
+
+		:param sck: SPI clock pin
+		:param mosi: SPI MOSI pin
+		:param miso: SPI MISO pin
+		:param rst: Reset pin
+		:param cs: Chip select pin
+		:param spi: Initialized SPI object 
+		"""
+
+		if not spi:
+			# Initialize SPI bus on given pins
+
+			self.sck = Pin(sck, Pin.OUT)
+			self.mosi = Pin(mosi, Pin.OUT)
+			self.miso = Pin(miso)
+			
+			board = uname()[0]
+
+			# Due to differences in the SPI initialization, only the following
+			# platforms are supported
+
+			if board == 'WiPy' or board == 'LoPy' or board == 'FiPy':
+				self.spi = SPI(0)
+				self.spi.init(SPI.MASTER, baudrate=1000000, pins=(self.sck, self.mosi, self.miso))
+			elif board == 'esp8266':
+				self.spi = SPI(baudrate=100000, polarity=0, phase=0, sck=self.sck, mosi=self.mosi, miso=self.miso)
+				self.spi.init()
+			else:
+				raise RuntimeError("Unsupported platform - please provide an initialized SPI object")
+
+		else:
+			self.spi = spi
+
+		if rst:
+			# Initialize reset pin
+
+			self.rst = Pin(rst, Pin.OUT)
+			self.rst.value(1)
+		else:
+			self.rst = None
+
+		# Initialize chip select pin
+
 		self.cs = Pin(cs, Pin.OUT)
-
-		self.rst.value(0)
 		self.cs.value(1)
 		
-		board = uname()[0]
+		# Continue in dedicated function
 
-		if board == 'WiPy' or board == 'LoPy' or board == 'FiPy':
-			self.spi = SPI(0)
-			self.spi.init(SPI.MASTER, baudrate=1000000, pins=(self.sck, self.mosi, self.miso))
-		elif board == 'esp8266':
-			self.spi = SPI(baudrate=100000, polarity=0, phase=0, sck=self.sck, mosi=self.mosi, miso=self.miso)
-			self.spi.init()
-		else:
-			raise RuntimeError("Unsupported platform")
-
-		self.rst.value(1)
 		self.init()
 
-	def _wreg(self, reg, val):
+	def _wreg(self, reg: bytes, val: bytes):
+		""" Write a value to a register
+
+		:param reg: Register address
+		:param val: Value to write
+		"""
 
 		self.cs.value(0)
 		self.spi.write(b'%c' % int(0xff & ((reg << 1) & 0x7e)))
 		self.spi.write(b'%c' % int(0xff & val))
 		self.cs.value(1)
 
-	def _rreg(self, reg):
+	def _rreg(self, reg: bytes):
+		""" Read a value from a register
+
+		:param reg: Register address
+		:return: Value read
+		"""
 
 		self.cs.value(0)
 		self.spi.write(b'%c' % int(0xff & (((reg << 1) & 0x7e) | 0x80)))
