@@ -80,6 +80,10 @@ class MFRC522:
 
 			if isinstance(rst, int):
 				self.rst = Pin(rst, Pin.OUT)
+			elif isinstance(rst, Pin):
+				self.rst = rst
+			else:
+				raise TypeError("Invalid pin type for rst")
 
 			self.rst.value(1)
 		else:
@@ -89,7 +93,11 @@ class MFRC522:
 
 		if isinstance(cs, int):
 			self.cs = Pin(cs, Pin.OUT)
-			
+		elif isinstance(cs, Pin):
+			self.cs = cs
+		else:
+			raise TypeError("Invalid pin type for cs")
+
 		self.cs.value(1)
 		
 		# Continue in dedicated function
