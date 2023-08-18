@@ -78,14 +78,18 @@ class MFRC522:
 		if rst:
 			# Initialize reset pin
 
-			self.rst = Pin(rst, Pin.OUT)
+			if isinstance(rst, int):
+				self.rst = Pin(rst, Pin.OUT)
+
 			self.rst.value(1)
 		else:
 			self.rst = None
 
 		# Initialize chip select pin
 
-		self.cs = Pin(cs, Pin.OUT)
+		if isinstance(cs, int):
+			self.cs = Pin(cs, Pin.OUT)
+			
 		self.cs.value(1)
 		
 		# Continue in dedicated function
